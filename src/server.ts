@@ -1,6 +1,8 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import {filterImageFromURL, deleteLocalFiles} from './util/util';
+// @ts-ignore
+import urlExists from 'url-exists-deep';
 
 (async () => {
 
@@ -9,7 +11,6 @@ import {filterImageFromURL, deleteLocalFiles} from './util/util';
 
   // Set the network port
   const port = process.env.PORT || 8082;
-  
   // Use the body parser middleware for post requests
   app.use(bodyParser.json());
 
@@ -30,12 +31,35 @@ import {filterImageFromURL, deleteLocalFiles} from './util/util';
   /**************************************************************************** */
   app.get("/filteredimage",async (req,res)=>{
     const image_url=req.query.image_url;
+    //check image_url
     if(!image_url){
       res.status(403).send("Image Url is required");
     }
     console.log(image_url)
-    const filtrer_image_path= await filterImageFromURL(image_url);
-    res.status(201).send(filtrer_image_path);
+    //validate the image_url query
+    const exists = await urlExists(image_url);
+    if(!exists){
+      res.status(404).send(image_url+" doesn't exists or is not accessible")
+    }
+    else{
+      //filter image
+      filterImageFromURL(image_url).then(
+          filterImage=>{
+            res.status(201).sendFile(filterImage,()=>{
+              deleteLocalFiles([filterImage])
+            })
+          }
+      ).catch(err=>{
+        res.status(500).send("Unabled to process Image: "+err)
+      });
+    }
+
+    /*const filter_image=await filterImageFromURL(image_url);
+    res.status(201).sendFile(filter_image,()=>{
+      deleteLocalFiles([filter_image])
+    })*/
+
+
   })
   //! END @TODO1
   
